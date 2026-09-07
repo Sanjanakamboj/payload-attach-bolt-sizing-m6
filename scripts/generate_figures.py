@@ -255,8 +255,32 @@ def figure_4_torque_robustness() -> None:
         ax.plot([low / 1e3, high / 1e3], [y_pos[i], y_pos[i]], color=color, linewidth=5, zorder=3, solid_capstyle="round")
         ax.scatter([nominal / 1e3], [y_pos[i]], color="black", marker="|", s=140, zorder=4)
 
-        label = f"s_max={s_max*100:.1f}%  {'FEASIBLE' if tw.feasible else 'INFEASIBLE'}"
-        ax.annotate(label, (high / 1e3 + 1.0, y_pos[i]), fontsize=8, va="center", ha="left")
+        # Annotation is anchored to a FIXED fraction of the axes width
+        # (not to the band's own right edge), so its position never
+        # depends on how wide any individual band is -- this keeps every
+        # row's text clear of the bands/markers regardless of diameter.
+        s_max_label = f"s_max = {s_max*100:.1f}%"
+        verdict_label = "FEASIBLE" if tw.feasible else "INFEASIBLE"
+        verdict_color = "#3d6b34" if tw.feasible else "#a83a24"
+        ax.annotate(
+            s_max_label,
+            xy=(0.985, y_pos[i] + 0.16),
+            xycoords=("axes fraction", "data"),
+            fontsize=8.5,
+            va="center",
+            ha="right",
+            color="#333333",
+        )
+        ax.annotate(
+            verdict_label,
+            xy=(0.985, y_pos[i] - 0.16),
+            xycoords=("axes fraction", "data"),
+            fontsize=8.5,
+            va="center",
+            ha="right",
+            color=verdict_color,
+            fontweight="bold",
+        )
         max_high_kn = max(max_high_kn, high / 1e3, ceiling / 1e3)
 
     ax.set_yticks(y_pos)
@@ -266,8 +290,10 @@ def figure_4_torque_robustness() -> None:
         "Figure 4 — Torque-installation robustness at ±20% preload scatter\n"
         "gray band = force window [F_required, F_max]; colored band = achieved ±20% scatter"
     )
-    ax.set_xlim(0, max_high_kn * 1.45)
-    ax.set_ylim(-0.5, len(diam_mm) - 0.3)
+    # Extra right-hand margin reserved for the fixed-fraction annotation
+    # column so it never overlaps the widest band (12 mm).
+    ax.set_xlim(0, max_high_kn * 1.85)
+    ax.set_ylim(-0.5, len(diam_mm) - 0.15)
     fig.tight_layout()
     _save(fig, "fig4_torque_installation_robustness.png")
 
