@@ -75,6 +75,11 @@ window can still be installation-infeasible once scatter exceeds this
 value), and an illustrative midpoint installation-torque target. Not a
 torque specification, thread-friction model, or installation standard.
 
+Milestone 8 (final): a final engineering/software audit, one canonical
+end-to-end example (examples/final_payload_attach_assessment.py)
+integrating every layer above, deterministic portfolio figures, and
+README consolidation. No new physics or failure modes were added.
+
 Explicitly out of scope through Milestone 7 (deferred to later
 milestones): detailed thread geometry, pitch-dependent thread-torque
 decomposition, separate thread/under-head friction coefficients,
@@ -259,4 +264,4 @@ __all__ = [
     "select_installation_target",
 ]
 
-__version__ = "0.1.0"
+__version__ = "0.8.0"

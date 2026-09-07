@@ -4,12 +4,16 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "payload-bolts"
-version = "0.1.0"
-description = "Rigid-interface bolt-group load distribution for payload attach flanges (Milestone 1: geometry, load distribution, equilibrium verification)."
+version = "0.8.0"
+description = "Illustrative preliminary payload attach bolt/joint sizing and installation screen: rigid bolt-group load distribution, external strength sizing, preloaded joint closure/slip, preload-compatible strength, local joint checks, and torque-installation robustness (STM-08)."
 readme = "README.md"
 requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Sanjana Kamboj" }]
 dependencies = [
     "numpy>=1.24",
+    "matplotlib>=3.7",
 ]
 
 [project.optional-dependencies]
