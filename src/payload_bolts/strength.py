@@ -68,7 +68,20 @@ class NoFeasibleCandidateError(ValueError):
 class BoltMaterial:
     """Bolt material strength representation.
 
-    Units: Pa (pascals). Both allowables must be finite and > 0.
+    Units: Pa (pascals). `tensile_allowable` and `shear_allowable` are
+    required and must be finite and > 0, as in Milestone 2.
+
+    `proof_allowable` (Milestone 6+, optional): an illustrative
+    proof/preload working-stress allowable, distinct from
+    `tensile_allowable` -- proof/preload strength governs installation
+    tension, while `tensile_allowable` governs external-load-only (or,
+    in Milestone 6+, combined service) tensile margin. Defaults to
+    `None` for exact backward compatibility with Milestone 2 callers
+    that never reference it; when supplied it must be finite and > 0.
+    Any assessment that specifically requires a preload/proof check
+    (see `preloaded_strength.py`) raises a clear error if it is missing,
+    rather than silently skipping the check.
+
     Illustrative material property sets used in this project are
     explicitly labeled as illustrative in their `name` and are not
     claimed to be sourced from any real fastener specification unless
@@ -78,6 +91,7 @@ class BoltMaterial:
     name: str
     tensile_allowable: float
     shear_allowable: float
+    proof_allowable: Optional[float] = None
 
     def __post_init__(self):
         if not isinstance(self.name, str) or not self.name.strip():
@@ -86,6 +100,11 @@ class BoltMaterial:
             value = getattr(self, field_name)
             if not math.isfinite(value) or value <= 0:
                 raise ValueError(f"BoltMaterial.{field_name} must be finite and > 0, got {value}.")
+        if self.proof_allowable is not None:
+            if not math.isfinite(self.proof_allowable) or self.proof_allowable <= 0:
+                raise ValueError(
+                    f"BoltMaterial.proof_allowable must be finite and > 0, got {self.proof_allowable}."
+                )
 
 
 @dataclass(frozen=True)

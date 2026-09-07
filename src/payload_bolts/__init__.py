@@ -46,7 +46,24 @@ resolve whether the Milestone 2 minimum-strength 8 mm bolt remains a
 defensible conceptual choice once preload feasibility and local-joint
 screening are added.
 
-Explicitly out of scope through Milestone 5 (deferred to later
+Milestone 6 scope: an integrated preload + bolt-strength assessment on
+top of the unchanged Milestone 1-5 results -- a backward-compatible
+optional `BoltMaterial.proof_allowable`, installation preload stress
+against that proof allowable, total SERVICE bolt tension reusing
+Milestone 3's closed-joint load sharing exactly (preload plus the
+external tensile increment, not Milestone 2's external-load-only
+force), unmodified Milestone 1 shear demand, and the exact Milestone 2
+quadratic interaction criterion applied to the combined service
+stresses. Explicit domain validity (the model is only valid while the
+joint remains closed and unslipped, per Milestone 3), three independent
+preload capacity ceilings (proof, service-tensile, interaction) and the
+resulting feasible-preload window, and preload-compatible candidate
+sizing that may select a different (typically larger) bolt than
+Milestone 2's external-load-only result. A distinct, additive layer
+alongside -- not a replacement for -- Milestone 4's force-based proof/
+yield installation window or Milestone 5's local-joint screens.
+
+Explicitly out of scope through Milestone 6 (deferred to later
 milestones): torque-to-preload conversion / nut factor / torque
 coefficient / lubrication / thread friction / under-head friction,
 preload relaxation/embedment, thermal preload change, fatigue, prying,
@@ -121,6 +138,18 @@ from .joint_local_checks import (
     evaluate_candidate_trade,
     select_bolt_candidate,
 )
+from .preloaded_strength import (
+    PreloadedBoltStrengthResult,
+    PreloadedBoltGroupStrengthResult,
+    PreloadCeilings,
+    PreloadCapacityWindow,
+    PreloadedCandidateResult,
+    assess_preloaded_bolt_strength,
+    compute_preload_ceilings,
+    preload_capacity_window,
+    evaluate_preloaded_candidates,
+    select_smallest_passing_preloaded_bolt,
+)
 
 __all__ = [
     "BoltPattern",
@@ -180,6 +209,16 @@ __all__ = [
     "thread_strip_not_modeled",
     "evaluate_candidate_trade",
     "select_bolt_candidate",
+    "PreloadedBoltStrengthResult",
+    "PreloadedBoltGroupStrengthResult",
+    "PreloadCeilings",
+    "PreloadCapacityWindow",
+    "PreloadedCandidateResult",
+    "assess_preloaded_bolt_strength",
+    "compute_preload_ceilings",
+    "preload_capacity_window",
+    "evaluate_preloaded_candidates",
+    "select_smallest_passing_preloaded_bolt",
 ]
 
 __version__ = "0.1.0"

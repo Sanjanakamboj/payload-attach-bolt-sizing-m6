@@ -1017,6 +1017,214 @@ Milestone 1–4 limitations all still apply. In addition, for Milestone 5:
   portfolio value, so this is documented as an explicit, deliberate
   scope decision rather than an oversight.
 
+---
+
+# Milestone 6 — integrated preload + bolt-strength sizing
+
+**Milestone 6 checks whether the preload required to keep the joint
+closed and resist slip is itself compatible with bolt proof/tensile/
+shear strength. Torque, preload scatter, bearing, prying, thread
+failure, and fatigue remain deferred.**
+
+Milestone 6 is a distinct, additive layer alongside (not a replacement
+for) Milestone 4's `preload_limits.py` (force-based proof/yield
+installation window against a separate `BoltStrengthLimits` proof/yield
+strength) and Milestone 5's `joint_local_checks.py` (bearing/edge/
+spacing screens). Milestone 6 instead asks, at the **stress level**
+using `BoltMaterial`'s tensile/shear allowables and the exact Milestone
+2 quadratic interaction criterion: once the bolt carries preload,
+external tension, and external shear **simultaneously**, do the
+Milestone 2 strength margins still pass?
+
+> **Note on repository history**: this repository is a fork of
+> [`payload-attach-bolt-sizing`](https://github.com/Sanjanakamboj/payload-attach-bolt-sizing)
+> at its accepted Milestone 5 checkpoint (commit `4ee28c5`), created to
+> continue Milestone 6 work in an isolated repository after a second,
+> independently-running session was found actively editing the original
+> repository's working tree at the same time (files edited in this
+> session kept silently reverting there with no corresponding commit).
+> Milestone 1–5 history and all accepted numbers are carried over
+> unchanged; Milestone 6 is new work added only here.
+
+## Proof/preload allowable
+
+`BoltMaterial` gains an optional `proof_allowable: float | None = None`
+field — Pa, finite and > 0 when supplied, `None` by default for exact
+backward compatibility with every existing Milestone 2/4/5 caller.
+Illustrative canonical value used here: **proof/preload allowable = 600
+MPa**, alongside the unchanged Milestone 2 tensile (800 MPa) and shear
+(480 MPa) allowables — kept as a distinct property, never conflated
+with tensile allowable.
+
+## Installation preload stress
+
+```
+sigma_preload = F_preload / A_t
+MS_preload    = S_proof / sigma_preload - 1
+preload utilization = sigma_preload / S_proof
+```
+
+`A_t` is the exact Milestone 2 tensile stress area — no new/conflicting
+area convention.
+
+## Total service bolt tension
+
+Reuses Milestone 3's closed-joint load-sharing **exactly** (not
+Milestone 2's external-load-only tensile force):
+
+```
+T_sep,i        = max(T_ext,i, 0)
+Delta_F_b,i    = C * T_sep,i
+F_b,total,i    = F_preload + C * T_sep,i     (SERVICE tension)
+sigma_service,i = F_b,total,i / A_t
+```
+
+Service shear reuses the unmodified Milestone 1 shear demand
+(`tau_service = V_i / A_s`) — bolt shear is **never** reduced because
+friction exists; the Milestone 3 friction/slip model and this
+conservative bolt shear-strength screen are separate, independently
+reported checks.
+
+## Service interaction (reuses the exact Milestone 2 criterion)
+
+```
+FI_service = (sigma_service/S_t)^2 + (tau_service/S_s)^2      <= 1
+MS_interaction_service = 1/sqrt(FI_service) - 1
+```
+
+No new interaction equation — the same illustrative quadratic form
+already verified in Milestone 2, applied to SERVICE stresses instead of
+external-load-only stresses.
+
+## Domain validity
+
+The service-stress model is valid **only** within the Milestone 3
+closed/no-slip regime:
+
+```
+strength_model_valid = joint_closed AND no_slip
+overall integrated PASS = strength_model_valid
+                           AND preload/tension/shear/interaction margins >= 0 (every bolt)
+```
+
+A separated or slipped joint **forces** the overall result to FAIL, even
+if the raw stress margins happen to compute positive — this module
+never silently claims a valid integrated result outside its regime.
+
+## Governing mode (extends, does not modify, Milestone 2's tie-break)
+
+Four applicable modes: **preload, tension, shear, interaction**. On an
+exact tie (e.g. pure preload/tension demand with zero shear, where
+tension and interaction tie exactly per Milestone 2's own quadratic
+identity), the more physically specific mode is preferred — tension or
+shear over interaction, exactly as Milestone 2 already does; "preload"
+is checked against a separate proof allowable and stress basis, so it
+essentially never ties with the service-stress modes in practice, but
+is placed first in the tie-break order for determinism.
+
+## Preload capacity ceilings
+
+Three independent upper bounds on per-bolt preload, all using the
+candidate's own `A_t`/`A_s`/`S_t`/`S_s`/`S_proof`:
+
+```
+F_preload,max,proof       = S_proof * A_t
+F_preload,max,tension,i   = S_t*A_t - C*T_sep,i                         (group: min over bolts)
+F_preload,max,interaction,i = A_t*S_t*sqrt(1 - (V_i/(A_s*S_s))^2) - C*T_sep,i
+                              (infeasible for that bolt if V_i/(A_s*S_s) > 1 -- shear alone
+                               already exceeds the interaction criterion at ANY preload)
+F_preload,max = min(proof, tension, interaction)
+```
+
+## Feasible preload window
+
+```
+lower bound = F_required (Milestone 3)
+upper bound = F_preload,max
+feasible    = lower <= upper
+```
+
+## Milestone 2 vs. Milestone 6 bolt selection (headline result)
+
+| | Milestone 2 (external-load-only) | Milestone 6 (preload-integrated) |
+|---|---|---|
+| Smallest passing bolt | **8 mm** | **10 mm** |
+| Governing bolt/mode | bolt 1 / interaction | bolt 0 / preload |
+
+At the selected preload (35,109.8 N/bolt = 1.2× the Milestone 3
+requirement), the 8 mm candidate's preload stress alone (698.5 MPa)
+exceeds the 600 MPa proof allowable (margin −0.141) — **preload
+consumed enough capacity that 8 mm no longer passes**, even though its
+Milestone 2 external-load-only margin (+0.662, interaction) was
+comfortably positive. This was assessed honestly, not forced: the 8 mm
+result was computed first and reported as it came out.
+
+## Preload / friction / C sensitivity (10 mm candidate)
+
+- **Preload factor** (1.0×–2.0× required): slip margin and preload
+  margin move in **opposite directions** as preload increases —
+  slip margin improves (0.000 → 1.046) while preload margin worsens
+  (+0.611 → −0.195), crossing to FAIL at 2.0×. A genuine, verified
+  trade, not assumed.
+- **Friction** (μ = 0.10–0.40): the preload capacity ceiling (47,123.9
+  N) is constant (it depends on bolt/material/geometry, not friction),
+  while the required preload rises sharply as μ falls (21,689 →
+  57,204 N) — the window **closes entirely at μ=0.10** (width
+  −10,079.6 N, infeasible), a genuine crossover found by the sweep, not
+  forced.
+- **C** (0.10–0.40): higher C reduces the required preload slightly but
+  raises the maximum total bolt tension (39,624 → 43,979 N) and worsens
+  the interaction margin (+0.584 → +0.428) — the closure-vs-bolt-
+  strength trade is visible and verified, never asserted.
+
+## Verification summary (Milestone 6)
+
+- Hand-derived preload-stress boundary (30 kN / 50 mm² = 600 MPa,
+  margin 0 at 600 MPa proof), service bolt tension (20 kN + 0.2×10 kN =
+  22 kN), and interaction boundary (0.6² + 0.8² = 1, margin 0) all
+  verified exactly.
+- Proof/tension/interaction preload ceilings verified by independent
+  hand calculation, including the group ceiling = minimum bolt ceiling
+  identity and the shear-ratio-exceeds-1 infeasibility case.
+- Exact feasible-window boundary, an infeasible window, and a restored-
+  feasibility case all verified.
+- Domain-validity forcing (separated or slipped joint invalidates the
+  integrated result even when raw margins are positive) verified with
+  dedicated constructions.
+- Deterministic candidate ordering, smallest-passing selection, and
+  no-feasible-candidate handling verified; a case where a candidate
+  passes Milestone 2 but fails Milestone 6 verified explicitly (8 mm).
+- Monotonic sensitivity verified: increasing preload improves slip
+  margin but worsens preload/interaction margin; increasing C raises
+  the bolt tensile increment and reduces clamp-force loss; decreasing
+  friction raises the required preload.
+- Milestone 1/2/3 results verified unmutated/unaffected by this module;
+  the existing Milestone 2 `BoltMaterial` constructor verified
+  backward-compatible without `proof_allowable`.
+- **All 182 Milestone 1–5 tests remain unchanged and passing; 45 new
+  Milestone 6 tests added (227 total).**
+
+## Limitations
+
+Milestone 1–5 limitations all still apply. In addition, for Milestone 6:
+
+- Illustrative proof/preload allowable (600 MPa), not a sourced
+  fastener-grade specification.
+- Idealized gross-circular candidate areas, as in every prior milestone.
+- One equivalent scalar load-fraction C per joint (unchanged from
+  Milestone 3); never made diameter-dependent.
+- Preload is a prescribed force input; no torque-to-preload relation.
+- No torque scatter, no preload scatter, no embedment, no thermal
+  preload.
+- Closed-joint linear load-sharing only; no separated-contact
+  redistribution, no slipped-interface shear redistribution.
+- No bearing, tear-out, prying, or pull-through (see Milestone 5 for a
+  separate bearing/edge/spacing screen).
+- No thread stripping (explicitly not modeled, per Milestone 5).
+- No fatigue.
+- No detailed fastener standard/database lookup.
+- No certification claim of any kind.
+
 ## Install and test
 
 ```bash
@@ -1029,4 +1237,5 @@ python examples/bolt_strength_sizing.py
 python examples/preloaded_joint_screening.py
 python examples/preload_feasibility_screening.py
 python examples/bolt_candidate_trade.py
+python examples/preload_compatible_bolt_sizing.py
 ```
