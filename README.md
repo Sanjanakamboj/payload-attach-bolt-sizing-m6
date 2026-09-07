@@ -1225,6 +1225,181 @@ Milestone 1–5 limitations all still apply. In addition, for Milestone 6:
 - No detailed fastener standard/database lookup.
 - No certification claim of any kind.
 
+---
+
+# Milestone 7 — torque-to-preload installation window
+
+**Milestone 7 converts the force-based preload feasibility window into
+a first-order torque-controlled installation screen. The nut factor and
+preload scatter are illustrative; no detailed thread-friction or
+torque-angle model is included.**
+
+Milestone 6 established a FORCE-based preload feasibility window,
+`F_required_joint <= F_preload <= F_preload,max_bolt`. Milestone 7 does
+**not** change that window's mechanics — it consumes the existing
+lower bound (`required_preload()`, Milestone 3) and upper bound
+(`preload_capacity_window(...).ceilings.overall_ceiling`, Milestone 6)
+exactly as computed, and asks a narrower question: what installation
+**torque** range maps into that window once a simple torque-to-preload
+relation and preload scatter are included?
+
+## Torque/preload equation
+
+```
+T_install = K * F_preload * d
+F_preload = T_install / (K * d)
+```
+
+`K` (nut factor / torque coefficient) is a single illustrative
+coefficient lumping thread AND under-head/bearing friction together —
+**not** a universal constant; real values vary substantially with
+lubrication, coating, surface condition, and tightening method. `d` is
+the bolt's nominal diameter.
+
+## Nut-factor convention
+
+`TorquePreloadModel(nut_factor, preload_scatter_fraction)` — `K` finite
+and > 0; not associated with any real coating/lubricant unless sourced.
+Canonical illustrative value used here: **K = 0.20**.
+
+## Scatter convention
+
+A single **symmetric fractional** preload-scatter band around the
+nominal (K,d)-predicted preload: `s` finite, `0 <= s < 1`.
+
+```
+F_nominal = T / (K*d)
+F_low     = F_nominal * (1 - s)
+F_high    = F_nominal * (1 + s)
+```
+
+Canonical illustrative value: **s = 0.20 (±20%)** — a deterministic
+installation allowance, not a statistical confidence interval and not
+sourced from a specific torque-wrench/method specification.
+
+## Robust torque window
+
+A commanded torque is robustly acceptable only if **both** scatter
+tails remain inside the Milestone 3/6 force window:
+
+```
+F_low  >= F_required_joint        =>  T_min = K*d*F_required / (1-s)
+F_high <= F_preload,max_bolt      =>  T_max = K*d*F_max      / (1+s)
+```
+
+A robust window exists iff `T_min <= T_max` — solved in closed form,
+never by numerical search.
+
+## Maximum allowable scatter
+
+```
+s_max = (F_max - F_required) / (F_max + F_required)
+```
+
+The single central diagnostic of this milestone: **a force window can
+be feasible (`F_required <= F_max`) while its torque window is
+infeasible**, whenever the commanded scatter exceeds `s_max`.
+
+## 8 / 10 / 12 mm comparison (headline result)
+
+Canonical STM-08 case, K=0.20, ±20% scatter:
+
+| d [mm] | F_required [N] | F_max [N] | s_max | ±20% robust? | Torque window [N·m] |
+|---|---|---|---|---|---|
+| 8  | 29,258.2 | 30,159.3 | **0.0152** | **NO** | infeasible |
+| 10 | 29,258.2 | 47,123.9 | 0.2339 | **YES** | [73.1, 78.5] |
+| 12 | 29,258.2 | 67,858.4 | 0.3975 | YES | [87.8, 135.7] |
+
+**8 mm passes Milestone 2 external-load-only strength and even the
+bare Milestone 6 force window** (30,159 N > 29,258 N) — but its `s_max`
+is only ~1.5%, far below the canonical ±20% installation scatter, so
+its torque window is genuinely **infeasible**. 10 mm (the Milestone 6
+selected bolt) remains robust at ±20% with a narrow but positive
+5.4 N·m window. This demonstrates **bolt size driven by installation
+robustness**, not external strength alone — found honestly, not forced.
+
+## Representative installation target (10 mm, illustrative midpoint policy)
+
+```
+required overall preload = 29,258.2 N/bolt
+bolt max allowable preload = 47,123.9 N/bolt (proof governs)
+s_max = 0.2339 (23.4%)  ->  canonical +/-20% scatter: FEASIBLE
+
+torque_min = 73.145 N*m
+torque_max = 78.540 N*m
+window width = 5.394 N*m
+
+selected torque (midpoint, illustrative) = 75.843 N*m
+nominal preload = 37,921.3 N
+minimum achieved = 30,337.1 N  (reserve to required: +1,078.9 N)
+maximum achieved = 45,505.6 N  (reserve to max: +1,618.3 N)
+```
+
+The midpoint is an explicit **policy** (`illustrative midpoint
+installation target`), not derived as an optimum.
+
+## Scatter / nut-factor / friction sensitivity
+
+- **Scatter** (0.00–0.30, 10 mm): torque window shrinks monotonically
+  and crosses to infeasible between s=0.20 (width +5.4 N·m) and s=0.25
+  (width −2.6 N·m) — consistent with `s_max = 0.2339`.
+- **Nut factor** (K=0.12–0.30, scatter fixed at 20%): both `T_min` and
+  `T_max` scale exactly linearly with K (verified); `s_max` is
+  completely unaffected by K — K changes the torque needed for a given
+  preload, never the underlying force window.
+- **Joint friction** (μ=0.10–0.40, 10 mm, scatter fixed at 20%): lower
+  μ raises the required preload and **shrinks** `s_max` monotonically,
+  crossing to infeasible between μ=0.15 (s_max=0.105) and μ=0.20
+  (s_max=0.234); at μ=0.10 the underlying **force** window is already
+  infeasible (`s_max` negative), matching the accepted Milestone 6
+  finding that μ=0.10 has no feasible preload window at all.
+
+## Verification summary (Milestone 7)
+
+- Hand-derived torque-window bounds (d=0.01, K=0.2, F_required=30 kN,
+  F_max=50 kN, s=0.2 → T_min=75 N·m, T_max=83.33 N·m) and the
+  corresponding `s_max` (0.25) verified exactly.
+- Exact zero-width boundary (`s = s_max`) verified to PASS; slightly
+  above verified FAIL; slightly below verified positive width.
+- Torque↔preload and preload↔torque round trips verified exact.
+- Force-window infeasibility (`F_max < F_required`) verified to
+  propagate to torque-window infeasibility for any valid scatter.
+- Selected midpoint installation target verified to lie inside the
+  robust window, with both reserves non-negative.
+- Nut-factor linear scaling of both torque bounds verified; `s_max`
+  verified independent of K.
+- Bolt-size monotonicity of `s_max` (8 < 10 < 12 mm) and the 8 mm
+  infeasible / 10-12 mm feasible split at ±20% scatter verified on the
+  canonical case.
+- Low-friction joint case verified to raise required preload and
+  monotonically reduce `s_max`.
+- Milestone 1/3/6 results verified unmutated/unaffected by this module.
+- **All 227 Milestone 1–6 tests remain unchanged and passing; 33 new
+  Milestone 7 tests added (260 total).**
+
+## Limitations
+
+Milestone 1–6 limitations all still apply. In addition, for Milestone 7:
+
+- Simple `T = K*F*d` relation; no detailed thread geometry or
+  pitch-dependent decomposition.
+- Single lumped nut factor (no separate thread vs. under-head/bearing
+  friction split).
+- Symmetric preload scatter only (no asymmetric or non-uniform
+  distribution).
+- No prevailing torque.
+- No torque-measurement uncertainty beyond the lumped scatter fraction.
+- No torque-angle tightening.
+- No direct-tension-indicating fasteners or ultrasonic preload
+  measurement.
+- No embedment/relaxation, no thermal preload change (unchanged from
+  earlier milestones).
+- No detailed thread mechanics.
+- No installation-sequence interaction (bolt-to-bolt tightening order
+  effects).
+- No fatigue.
+- No certification claim of any kind.
+
 ## Install and test
 
 ```bash
@@ -1238,4 +1413,5 @@ python examples/preloaded_joint_screening.py
 python examples/preload_feasibility_screening.py
 python examples/bolt_candidate_trade.py
 python examples/preload_compatible_bolt_sizing.py
+python examples/torque_preload_installation.py
 ```

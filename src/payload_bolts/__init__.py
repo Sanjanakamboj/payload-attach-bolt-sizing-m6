@@ -63,15 +63,29 @@ Milestone 2's external-load-only result. A distinct, additive layer
 alongside -- not a replacement for -- Milestone 4's force-based proof/
 yield installation window or Milestone 5's local-joint screens.
 
-Explicitly out of scope through Milestone 6 (deferred to later
-milestones): torque-to-preload conversion / nut factor / torque
-coefficient / lubrication / thread friction / under-head friction,
-preload relaxation/embedment, thermal preload change, fatigue, prying,
-nonlinear plate flexibility, detailed flange bending, detailed
-bearing/tear-out interaction, net-section rupture, nonlinear contact
-FEA, fracture mechanics, thread stripping (explicitly not modeled, see
-above), proof testing, detailed fastener standards/database lookup,
-structural optimization, and certification/qualification.
+Milestone 7 scope: a first-order torque-to-preload and preload-scatter
+INSTALLATION model consuming, unmodified, the Milestone 3 required
+preload and Milestone 6 preload capacity ceiling as a plain force
+window -- an illustrative T=K*F*d torque/preload relation, a lumped
+nut factor, a symmetric preload-scatter fraction, the installed preload
+band for a commanded torque, the closed-form robust torque window
+(both scatter tails must remain inside the force window), the maximum
+allowable scatter fraction (the central diagnostic: a feasible force
+window can still be installation-infeasible once scatter exceeds this
+value), and an illustrative midpoint installation-torque target. Not a
+torque specification, thread-friction model, or installation standard.
+
+Explicitly out of scope through Milestone 7 (deferred to later
+milestones): detailed thread geometry, pitch-dependent thread-torque
+decomposition, separate thread/under-head friction coefficients,
+prevailing torque, torque-angle tightening, direct-tension-indicating
+fasteners, ultrasonic preload measurement, preload relaxation/
+embedment, thermal preload change, fatigue, prying, nonlinear plate
+flexibility, detailed flange bending, detailed bearing/tear-out
+interaction, net-section rupture, nonlinear contact FEA, fracture
+mechanics, thread stripping (explicitly not modeled, see above), proof
+testing, detailed fastener standards/database lookup, structural
+optimization, and certification/qualification.
 """
 
 from .geometry import BoltPattern, circular_pattern, rectangular_pattern
@@ -150,6 +164,19 @@ from .preloaded_strength import (
     evaluate_preloaded_candidates,
     select_smallest_passing_preloaded_bolt,
 )
+from .torque_preload import (
+    TorquePreloadModel,
+    InstalledPreloadBand,
+    TorqueInstallationWindow,
+    SelectedInstallationTarget,
+    NoRobustTorqueWindowError,
+    torque_from_preload,
+    preload_from_torque,
+    installed_preload_band,
+    torque_installation_window,
+    max_allowable_scatter,
+    select_installation_target,
+)
 
 __all__ = [
     "BoltPattern",
@@ -219,6 +246,17 @@ __all__ = [
     "preload_capacity_window",
     "evaluate_preloaded_candidates",
     "select_smallest_passing_preloaded_bolt",
+    "TorquePreloadModel",
+    "InstalledPreloadBand",
+    "TorqueInstallationWindow",
+    "SelectedInstallationTarget",
+    "NoRobustTorqueWindowError",
+    "torque_from_preload",
+    "preload_from_torque",
+    "installed_preload_band",
+    "torque_installation_window",
+    "max_allowable_scatter",
+    "select_installation_target",
 ]
 
 __version__ = "0.1.0"
